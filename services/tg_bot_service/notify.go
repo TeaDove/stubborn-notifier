@@ -9,7 +9,7 @@ import (
 	"github.com/teadove/teasutils/utils/must_utils"
 )
 
-var notifyRegexp = must_utils.Must(regexp.Compile(`^at (?P<Cron>.+) with (?P<Text>.+)$`))
+var notifyRegexp = must_utils.Must(regexp.Compile(`^at (?P<Cron>.+) about (?P<Text>.+)$`))
 
 func (r *Context) Notify() error {
 	groups := notifyRegexp.FindStringSubmatch(r.text)

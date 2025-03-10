@@ -15,7 +15,7 @@ import (
 	"github.com/teadove/teasutils/utils/must_utils"
 )
 
-var timerRegexp = must_utils.Must(regexp.Compile(`^in (?P<Dur>.+) with (?P<Text>.+)$`))
+var timerRegexp = must_utils.Must(regexp.Compile(`^in (?P<Dur>.+) about (?P<Text>.+)$`))
 
 func (r *Context) Timer() error {
 	groups := timerRegexp.FindStringSubmatch(r.text)

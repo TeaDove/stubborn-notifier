@@ -14,6 +14,3 @@ type Notify struct {
 	DoneToday bool
 	CreatedAt time.Time
 }
-
-func Save() {
-}
