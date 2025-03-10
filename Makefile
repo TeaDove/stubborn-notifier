@@ -1,19 +1,16 @@
 GO ?= GO111MODULE=on CGO_ENABLED=0 go
 
 run:
-	$(GO) run ${TARGET}
-
-run-main:
-	$(GO) run entrypoints/app_entrypoint/main.go
+	$(GO) run main.go
 
 build:
-	$(GO) build -o bootstrap ${TARGET}
+	$(GO) build -o bootstrap main.go
 
 tests:
 	$(GO) test ./...
 
 docker-run:
-	docker build --build-arg TARGET=${TARGET} -t telemetry-go . && docker run -it telemetry-go
+	docker build -t stubborn-notifier . && docker run -it stubborn-notifier
 
 update-all:
 	go get -u ./...

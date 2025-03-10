@@ -2,16 +2,14 @@
 FROM golang:1.23-bullseye AS build
 
 WORKDIR /src
-COPY go.mod go.sum main.go ./
 
 ENV CGO_ENABLED=0
-RUN go build -o stub && rm stub
+COPY go.mod go.sum ./
 RUN go get ./...
 
 COPY . .
 
-ARG TARGET
-RUN TARGET=$TARGET make build
+RUN make build
 
 ## Now copy it into our base image.
 FROM debian:trixie
