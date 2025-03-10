@@ -6,6 +6,7 @@ import (
 	"strings"
 	"stubborn-notifier/repositories/notify_repository"
 	"sync"
+	"time"
 
 	"github.com/go-co-op/gocron"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -15,18 +16,20 @@ import (
 	"github.com/teadove/teasutils/utils/must_utils"
 )
 
+const onErrorSleepDur = 20 * time.Second
+
 type Service struct {
 	bot       *tgbotapi.BotAPI
 	scheduler *gocron.Scheduler
 
 	notifyRepository *notify_repository.Repository
 
-	timers   map[uuid.UUID]TimerJob
+	timers   map[uuid.UUID]notify_repository.Timer
 	timersMu sync.Mutex
 }
 
 func NewService(
-	_ context.Context,
+	ctx context.Context,
 	bot *tgbotapi.BotAPI,
 	scheduler *gocron.Scheduler,
 	notifyRepository *notify_repository.Repository,
@@ -40,6 +43,10 @@ func NewService(
 			Command:     "timer",
 			Description: "Поставить таймер!",
 		},
+		tgbotapi.BotCommand{
+			Command:     "disable",
+			Description: "Отключить уведомляшку",
+		},
 	)
 
 	_, err := bot.Request(command)
@@ -47,12 +54,19 @@ func NewService(
 		return nil, errors.Wrap(err, "failed to set commands")
 	}
 
-	return &Service{
+	r := &Service{
 		bot:              bot,
 		scheduler:        scheduler,
 		notifyRepository: notifyRepository,
-		timers:           make(map[uuid.UUID]TimerJob, 10),
-	}, nil
+		timers:           make(map[uuid.UUID]notify_repository.Timer, 10),
+	}
+
+	err = r.RestartTimers(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to restart timers")
+	}
+
+	return r, nil
 }
 
 func (r *Service) PollerRun(ctx context.Context) {
@@ -146,6 +160,8 @@ func (r *Service) processUpdate(ctx context.Context, wg *sync.WaitGroup, update 
 		c.tryReplyOnErr(c.Notify())
 	case "timer":
 		c.tryReplyOnErr(c.Timer())
+	case "disable":
+		c.tryReplyOnErr(c.Disable())
 	case "start":
 		c.tryReplyOnErr(c.reply("https://crontab.guru/#0_9_*_*_*"))
 	}

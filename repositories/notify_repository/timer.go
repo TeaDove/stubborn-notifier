@@ -18,6 +18,7 @@ type Timer struct {
 	Text         string
 	NotifyAt     time.Time
 	NotifyPeriod time.Duration
+	Attempt      uint64
 }
 
 func (r *Repository) CreateTimer(
@@ -37,7 +38,9 @@ func (r *Repository) CreateTimer(
 		NotifyPeriod: period,
 	}
 
-	err := r.db.WithContext(ctx).Save(timer).Error
+	err := r.db.WithContext(ctx).
+		Save(timer).
+		Error
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to save timer")
 	}
@@ -45,15 +48,28 @@ func (r *Repository) CreateTimer(
 	return timer, nil
 }
 
-func (r *Repository) CompleteTimer(ctx context.Context, id uuid.UUID) error {
-	err := r.db.WithContext(ctx).Model(&Timer{}).
-		Updates(map[string]any{"completed_at": sql.NullTime{Time: time.Now().UTC(), Valid: true}}).
-		Where("id = ?", id).Error
-	if err != nil {
-		return errors.Wrap(err, "failed to complete timer")
+func (r *Repository) CompleteTimer(ctx context.Context, id uuid.UUID) (bool, error) {
+	result := r.db.WithContext(ctx).
+		Model(&Timer{}).
+		Where("id = ?", id).
+		Updates(map[string]any{"completed_at": sql.NullTime{Time: time.Now().UTC(), Valid: true}})
+
+	if result.Error != nil {
+		return false, errors.Wrap(result.Error, "failed to complete timer")
 	}
 
-	return nil
+	return result.RowsAffected == 1, nil
+}
+
+func (r *Repository) IncAttemptsTimer(ctx context.Context, id uuid.UUID) (bool, error) {
+	result := r.db.WithContext(ctx).
+		Exec("update timers set attempt = attempt + 1 where id = ?", id)
+
+	if result.Error != nil {
+		return false, errors.Wrap(result.Error, "failed to complete timer")
+	}
+
+	return result.RowsAffected == 1, nil
 }
 
 func (r *Repository) GetIncompleteTimers(ctx context.Context) ([]Timer, error) {
@@ -65,4 +81,32 @@ func (r *Repository) GetIncompleteTimers(ctx context.Context) ([]Timer, error) {
 	}
 
 	return timers, nil
+}
+
+func (r *Repository) GetTimer(ctx context.Context, id uuid.UUID) (*Timer, error) {
+	var timer Timer
+
+	err := r.db.WithContext(ctx).
+		Where("id = ?", id).
+		First(&timer).
+		Error
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to select")
+	}
+
+	return &timer, nil
+}
+
+func (r *Repository) TimerIsCompleted(ctx context.Context, id uuid.UUID) (bool, error) {
+	var timer Timer
+
+	err := r.db.WithContext(ctx).
+		Where("id = ?", id).
+		First(&timer).
+		Error
+	if err != nil {
+		return false, errors.Wrap(err, "failed to select")
+	}
+
+	return timer.CompletedAt.Valid, nil
 }

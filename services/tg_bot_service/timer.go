@@ -1,6 +1,11 @@
 package tg_bot_service
 
 import (
+	"context"
+	"fmt"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/teadove/teasutils/utils/logger_utils"
+	"html"
 	"regexp"
 	"stubborn-notifier/repositories/notify_repository"
 	"time"
@@ -9,11 +14,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/teadove/teasutils/utils/must_utils"
 )
-
-type TimerJob struct {
-	timer notify_repository.Timer
-	done  chan struct{}
-}
 
 var timerRegexp = must_utils.Must(regexp.Compile(`^in (?P<Dur>.+) with (?P<Text>.+)$`))
 
@@ -32,21 +32,92 @@ func (r *Context) Timer() error {
 
 	text := groups[timerRegexp.SubexpIndex("Text")]
 
-	timer, err := r.presentation.notifyRepository.CreateTimer(r.ctx, r.chat.ID, text, dur, time.Second*10)
+	timer, err := r.presentation.notifyRepository.CreateTimer(r.ctx, r.chat.ID, text, dur, time.Minute*1)
 	if err != nil {
 		return errors.Wrap(err, "failed to create timer")
 	}
+
+	r.presentation.timersMu.Lock()
+	defer r.presentation.timersMu.Unlock()
+	r.presentation.timers[timer.ID] = *timer
+
+	go r.presentation.notifyTimer(logger_utils.NewLoggedCtx(), timer)
 
 	zerolog.Ctx(r.ctx).Info().Interface("timer", timer).Msg("timer.saved")
 
 	return r.reply("Успешно!")
 }
 
-// func (r *Context) NotifyText(text string) {
-//	_, err := r.presentation.bot.Send(tgbotapi.NewMessage(r.update.Message.Chat.ID, text))
-//	if err != nil {
-//		zerolog.Ctx(r.ctx).Error().Stack().Err(err).Msg("failed.to.sent.notify")
-//	}
-//
-//	zerolog.Ctx(r.ctx).Info().Str("text", text).Msg("notify.sent")
-//}
+func (r *Service) notifyTimer(ctx context.Context, timer *notify_repository.Timer) {
+	ctx = logger_utils.WithValue(ctx, "timer_id", timer.ID.String())
+	zerolog.Ctx(ctx).Info().Msg("timer.scheduled")
+
+	now := time.Now().UTC()
+	if timer.NotifyAt.After(now) {
+		sleepDur := timer.NotifyAt.Sub(now)
+		zerolog.Ctx(ctx).Debug().Str("dur", sleepDur.String()).Msg("sleeping")
+		time.Sleep(sleepDur)
+	}
+
+	msgReq := tgbotapi.NewMessage(timer.ChatID, fmt.Sprintf("%s\n\nTo disable timer, sent:\n <code>/disable %s</code>", html.EscapeString(timer.Text), timer.ID.String()))
+	msgReq.ParseMode = tgbotapi.ModeHTML
+
+	var err error
+	zerolog.Ctx(ctx).Info().Msg("notifying")
+	for {
+		timer, err = r.notifyRepository.GetTimer(ctx, timer.ID)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Stack().Err(err).Msg("failed.to.check.if.timer.is.completed")
+			time.Sleep(onErrorSleepDur)
+			continue
+		}
+
+		if timer.CompletedAt.Valid {
+			zerolog.Ctx(ctx).Info().Msg("exiting.notifier")
+			r.timersMu.Lock()
+
+			delete(r.timers, timer.ID)
+
+			r.timersMu.Unlock()
+			return
+		}
+
+		_, err = r.bot.Send(msgReq)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Stack().Err(err).Msg("failed.to.sent.message")
+			time.Sleep(onErrorSleepDur)
+			continue
+		}
+
+		_, err = r.notifyRepository.IncAttemptsTimer(ctx, timer.ID)
+		if err != nil {
+			zerolog.Ctx(ctx).Error().Stack().Err(err).Msg("failed.to.update.timer")
+			time.Sleep(onErrorSleepDur)
+			continue
+		}
+
+		zerolog.Ctx(ctx).Info().Str("next", timer.NotifyPeriod.String()).Msg("notification.sent")
+		time.Sleep(timer.NotifyPeriod)
+	}
+}
+
+func (r *Service) RestartTimers(ctx context.Context) error {
+	timers, err := r.notifyRepository.GetIncompleteTimers(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get incomplete timers")
+	}
+
+	r.timersMu.Lock()
+	defer r.timersMu.Unlock()
+	for _, timer := range timers {
+		_, ok := r.timers[timer.ID]
+		if ok {
+			continue
+		}
+
+		r.timers[timer.ID] = timer
+		go r.notifyTimer(logger_utils.NewLoggedCtx(), &timer)
+	}
+
+	return nil
+}
