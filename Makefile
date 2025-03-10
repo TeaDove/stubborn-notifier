@@ -9,13 +9,6 @@ build:
 tests:
 	$(GO) test ./...
 
-docker-run:
-	docker build -t stubborn-notifier . && docker run -it stubborn-notifier
-
-update-all:
-	go get -u ./...
-	go mod tidy
-
 lint:
 	gofumpt -w *.go
 	golines --base-formatter=gofumpt --max-len=120 --no-reformat-tags -w .
