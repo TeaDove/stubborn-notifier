@@ -9,6 +9,19 @@ import (
 	"github.com/rs/zerolog"
 )
 
+func (r *Context) buildReply(text string) tgbotapi.MessageConfig {
+	if r.chat == nil {
+		panic(errors.New("chat is nil"))
+	}
+	msgReq := tgbotapi.NewMessage(r.chat.ID, text)
+	if r.update.Message != nil {
+		msgReq.ReplyToMessageID = r.update.Message.MessageID
+	}
+	msgReq.ParseMode = tgbotapi.ModeHTML
+
+	return msgReq
+}
+
 func (r *Context) reply(text string) error {
 	_, err := r.replyWithMessage(text)
 	return err
@@ -26,9 +39,7 @@ func (r *Context) tryReply(text string) {
 }
 
 func (r *Context) replyWithMessage(text string) (tgbotapi.Message, error) {
-	msgReq := tgbotapi.NewMessage(r.update.Message.Chat.ID, text)
-	msgReq.ReplyToMessageID = r.update.Message.MessageID
-	msgReq.ParseMode = tgbotapi.ModeHTML
+	msgReq := r.buildReply(text)
 
 	msg, err := r.presentation.bot.Send(msgReq)
 	if err != nil {
@@ -66,7 +77,10 @@ func (r *Context) replyWithClientErr(err error) error {
 		return nil
 	}
 
-	zerolog.Ctx(r.ctx).Warn().Err(err).Msg("client.error")
+	zerolog.Ctx(r.ctx).Warn().
+		Interface("update", r.update).
+		Err(err).
+		Msg("client.error")
 
 	return r.reply(fmt.Sprintf("Bad request: <code>%s</code>", html.EscapeString(err.Error())))
 }

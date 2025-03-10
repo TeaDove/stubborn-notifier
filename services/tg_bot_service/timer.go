@@ -17,11 +17,34 @@ import (
 
 var timerRegexp = must_utils.Must(regexp.Compile(`^in (?P<Dur>.+) about (?P<Text>.+)$`))
 
+func (r *Context) suggestTimers() error {
+	msg := r.buildReply("You need to specify duration and text, or use default timers." +
+		"i.e. <code>/timer in 37m about Do math homework</code>")
+
+	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData("in 7m", `{"timer": "7m"}`), tgbotapi.NewInlineKeyboardButtonData("in 13m", `{"timer": "13m"}`)),
+		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData("in 23m", `{"timer": "23m"}`), tgbotapi.NewInlineKeyboardButtonData("in 47m", `{"timer": "47m"}`)),
+	)
+	_, err := r.presentation.bot.Send(msg)
+	if err != nil {
+		return errors.Wrap(err, "failed to send message")
+	}
+
+	return nil
+}
+
 func (r *Context) Timer() error {
+	if r.text == "" {
+		return r.suggestTimers()
+	}
+
 	groups := timerRegexp.FindStringSubmatch(r.text)
 	if groups == nil {
 		return r.replyWithClientErr(
-			errors.Errorf("failed to match request, text: %s, expected: %s", r.text, timerRegexp.String()),
+			errors.Errorf("failed to match request, text: %s, expected: %s",
+				r.text,
+				timerRegexp.String(),
+			),
 		)
 	}
 
@@ -37,6 +60,10 @@ func (r *Context) Timer() error {
 		return errors.Wrap(err, "failed to create timer")
 	}
 
+	return r.scheduleTimer(timer)
+}
+
+func (r *Context) scheduleTimer(timer *notify_repository.Timer) error {
 	r.presentation.timersMu.Lock()
 	defer r.presentation.timersMu.Unlock()
 	r.presentation.timers[timer.ID] = *timer
@@ -45,12 +72,15 @@ func (r *Context) Timer() error {
 
 	zerolog.Ctx(r.ctx).Info().Interface("timer", timer).Msg("timer.saved")
 
-	return r.reply("Успешно!")
+	return r.reply(fmt.Sprintf("Timer set!\n\nAt: %s", timer.NotifyAt))
 }
 
 func (r *Service) notifyTimer(ctx context.Context, timer *notify_repository.Timer) {
 	ctx = logger_utils.WithValue(ctx, "timer_id", timer.ID.String())
-	zerolog.Ctx(ctx).Info().Msg("timer.scheduled")
+	zerolog.Ctx(ctx).
+		Info().
+		Interface("timer", timer).
+		Msg("timer.scheduled")
 
 	now := time.Now().UTC()
 	if timer.NotifyAt.After(now) {

@@ -51,7 +51,7 @@ func (r *Repository) CreateTimer(
 func (r *Repository) CompleteTimer(ctx context.Context, id uuid.UUID) (bool, error) {
 	result := r.db.WithContext(ctx).
 		Model(&Timer{}).
-		Where("id = ?", id).
+		Where("id = ? and completed_at is null", id).
 		Updates(map[string]any{"completed_at": sql.NullTime{Time: time.Now().UTC(), Valid: true}})
 
 	if result.Error != nil {
@@ -60,6 +60,17 @@ func (r *Repository) CompleteTimer(ctx context.Context, id uuid.UUID) (bool, err
 
 	return result.RowsAffected == 1, nil
 }
+
+//func (r *Repository) IncAttemptsTimer(ctx context.Context, id uuid.UUID) (bool, error) {
+//	result := r.db.WithContext(ctx).
+//		Exec("update timers set attempt = attempt + 1 where id = ?", id)
+//
+//	if result.Error != nil {
+//		return false, errors.Wrap(result.Error, "failed to complete timer")
+//	}
+//
+//	return result.RowsAffected == 1, nil
+//}
 
 func (r *Repository) IncAttemptsTimer(ctx context.Context, id uuid.UUID) (bool, error) {
 	result := r.db.WithContext(ctx).
@@ -98,18 +109,4 @@ func (r *Repository) GetTimer(ctx context.Context, id uuid.UUID) (*Timer, error)
 	}
 
 	return &timer, nil
-}
-
-func (r *Repository) TimerIsCompleted(ctx context.Context, id uuid.UUID) (bool, error) {
-	var timer Timer
-
-	err := r.db.WithContext(ctx).
-		Where("id = ?", id).
-		First(&timer).
-		Error
-	if err != nil {
-		return false, errors.Wrap(err, "failed to select")
-	}
-
-	return timer.CompletedAt.Valid, nil
 }

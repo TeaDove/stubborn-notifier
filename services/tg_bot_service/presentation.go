@@ -2,6 +2,7 @@ package tg_bot_service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"stubborn-notifier/repositories/notify_repository"
@@ -167,12 +168,47 @@ func (r *Service) runCommand(c *Context) error {
 	return nil
 }
 
+func (r *Service) processCallbackQuery(c *Context) error {
+	// Игноринг из-за бага в tgbotapi...
+	_, _ = r.bot.Send(tgbotapi.NewCallback(c.update.CallbackQuery.ID, "Processing!"))
+
+	var timerReq struct {
+		Timer string `json:"timer"`
+	}
+
+	err := json.Unmarshal([]byte(c.update.CallbackQuery.Data), &timerReq)
+	if err != nil {
+		return errors.Wrap(err, "failed to unmarshal callback query data")
+	}
+
+	in, err := time.ParseDuration(timerReq.Timer)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse timer duration")
+	}
+
+	timer, err := r.notifyRepository.CreateTimer(c.ctx, c.chat.ID, "Time elaplsed!", in, time.Minute*1)
+	if err != nil {
+		return errors.Wrap(err, "failed to create timer")
+	}
+
+	return c.scheduleTimer(timer)
+}
+
 func (r *Service) processUpdate(ctx context.Context, wg *sync.WaitGroup, update *tgbotapi.Update) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer wg.Done()
 
 	c := r.makeCtx(ctx, update)
+
+	if update.CallbackQuery != nil {
+		err := r.processCallbackQuery(&c)
+		if err != nil {
+			return errors.Wrap(err, "failed to process callback query")
+		}
+
+		return nil
+	}
 
 	// TODO set advected commands
 	err := r.runCommand(&c)
