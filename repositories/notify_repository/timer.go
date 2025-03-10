@@ -75,7 +75,10 @@ func (r *Repository) IncAttemptsTimer(ctx context.Context, id uuid.UUID) (bool, 
 func (r *Repository) GetIncompleteTimers(ctx context.Context) ([]Timer, error) {
 	var timers []Timer
 
-	err := r.db.WithContext(ctx).Find(&timers).Where("completed_at is null").Error
+	err := r.db.WithContext(ctx).
+		Where("completed_at is null").
+		Find(&timers).
+		Error
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to select")
 	}
