@@ -2,6 +2,7 @@ package tg_bot_service
 
 import (
 	"context"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/rs/zerolog"
@@ -56,6 +57,7 @@ func (r *Service) makeCtx(ctx context.Context, update *tgbotapi.Update) Context 
 
 	inChat := c.sentFrom != nil && c.chat != nil && c.sentFrom.ID != c.chat.ID
 	c.command, c.text = extractCommandAndText(c.fulltext, c.presentation.bot.Self.UserName, inChat)
+	c.text = strings.TrimSpace(c.text)
 
 	c.addLogCtx()
 
