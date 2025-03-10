@@ -2,7 +2,7 @@
 cpu.prof
 **/.test/
 .env
-#data/
+data/
 !data/.gitkeep
 
 bootstrap*
