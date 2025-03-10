@@ -145,6 +145,28 @@ func extractCommandAndText(text string, botUsername string, isChat bool) (string
 	}
 }
 
+func (r *Service) runCommand(c *Context) error {
+	handlers := map[string]func() error{
+		"notify":  c.Notify,
+		"timer":   c.Timer,
+		"disable": c.Disable,
+		"start":   func() error { return c.reply("https://crontab.guru/#0_9_*_*_*") },
+	}
+
+	handler, ok := handlers[c.command]
+	if !ok {
+		return c.replyWithClientErr(errors.New("command not found"))
+	}
+
+	err := handler()
+	if err != nil {
+		return errors.Wrap(err, "failed to execute command")
+	}
+
+	zerolog.Ctx(c.ctx).Debug().Msg("update.processed")
+	return nil
+}
+
 func (r *Service) processUpdate(ctx context.Context, wg *sync.WaitGroup, update *tgbotapi.Update) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -152,18 +174,10 @@ func (r *Service) processUpdate(ctx context.Context, wg *sync.WaitGroup, update 
 
 	c := r.makeCtx(ctx, update)
 
-	zerolog.Ctx(c.ctx).Debug().Msg("processing.update")
-
 	// TODO set advected commands
-	switch c.command {
-	case "notify":
-		c.tryReplyOnErr(c.Notify())
-	case "timer":
-		c.tryReplyOnErr(c.Timer())
-	case "disable":
-		c.tryReplyOnErr(c.Disable())
-	case "start":
-		c.tryReplyOnErr(c.reply("https://crontab.guru/#0_9_*_*_*"))
+	err := r.runCommand(&c)
+	if err != nil {
+		return errors.Wrap(err, "failed to execute command")
 	}
 
 	return nil
