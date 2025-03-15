@@ -3,39 +3,65 @@ package notify_repository
 import (
 	"context"
 	"database/sql"
+	"github.com/rs/zerolog"
+	"github.com/teadove/teasutils/utils/redact_utils"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
 
 type Timer struct {
-	ID          uuid.UUID `gorm:"primary_key"`
+	ID          uint64 `gorm:"primary_key"`
 	CreatedAt   time.Time
 	CompletedAt sql.NullTime
 
-	ChatID       int64
-	Text         string
-	NotifyAt     time.Time
-	NotifyPeriod time.Duration
-	Attempt      uint64
+	ChatID int64
+
+	About    sql.NullString
+	NotifyAt time.Time
+	Interval sql.Null[time.Duration]
+	Attempt  uint64
+}
+
+func (r *Timer) NotifyAtStr() string {
+	return r.NotifyAt.Format("Jan 02 Mon at 15:04")
+}
+
+func (r *Timer) MarshalZerologObject(e *zerolog.Event) {
+	e.
+		Uint64("id", r.ID).
+		Int64("chat_id", r.ChatID).
+		Time("notify_at", r.NotifyAt)
+	if r.About.Valid {
+		e.Str("about", redact_utils.Trim(r.About.String))
+	}
+	if r.CompletedAt.Valid {
+		e.Time("completed_at", r.CompletedAt.Time)
+	}
+}
+
+func (r *Timer) CopyForNew() Timer {
+	return Timer{
+		ChatID:   r.ChatID,
+		About:    r.About,
+		NotifyAt: r.NotifyAt.Add(r.Interval.V),
+		Interval: r.Interval,
+	}
 }
 
 func (r *Repository) CreateTimer(
 	ctx context.Context,
 	chatID int64,
-	text string,
-	dur time.Duration,
-	period time.Duration,
+	about sql.NullString,
+	at time.Time,
+	interval sql.Null[time.Duration],
 ) (*Timer, error) {
-	now := time.Now().UTC()
 	timer := &Timer{
-		ID:           uuid.New(),
-		ChatID:       chatID,
-		Text:         text,
-		NotifyAt:     now.Add(dur),
-		CreatedAt:    now,
-		NotifyPeriod: period,
+		ChatID:    chatID,
+		About:     about,
+		NotifyAt:  at,
+		CreatedAt: time.Now(),
+		Interval:  interval,
 	}
 
 	err := r.db.WithContext(ctx).
@@ -48,31 +74,7 @@ func (r *Repository) CreateTimer(
 	return timer, nil
 }
 
-func (r *Repository) CompleteTimer(ctx context.Context, id uuid.UUID) (bool, error) {
-	result := r.db.WithContext(ctx).
-		Model(&Timer{}).
-		Where("id = ? and completed_at is null", id).
-		Updates(map[string]any{"completed_at": sql.NullTime{Time: time.Now().UTC(), Valid: true}})
-
-	if result.Error != nil {
-		return false, errors.Wrap(result.Error, "failed to complete timer")
-	}
-
-	return result.RowsAffected == 1, nil
-}
-
-//func (r *Repository) IncAttemptsTimer(ctx context.Context, id uuid.UUID) (bool, error) {
-//	result := r.db.WithContext(ctx).
-//		Exec("update timers set attempt = attempt + 1 where id = ?", id)
-//
-//	if result.Error != nil {
-//		return false, errors.Wrap(result.Error, "failed to complete timer")
-//	}
-//
-//	return result.RowsAffected == 1, nil
-//}
-
-func (r *Repository) IncAttemptsTimer(ctx context.Context, id uuid.UUID) (bool, error) {
+func (r *Repository) IncAttemptsTimer(ctx context.Context, id uint64) (bool, error) {
 	result := r.db.WithContext(ctx).
 		Exec("update timers set attempt = attempt + 1 where id = ?", id)
 
@@ -97,7 +99,7 @@ func (r *Repository) GetIncompleteTimers(ctx context.Context) ([]Timer, error) {
 	return timers, nil
 }
 
-func (r *Repository) GetTimer(ctx context.Context, id uuid.UUID) (*Timer, error) {
+func (r *Repository) GetTimer(ctx context.Context, id uint64) (*Timer, error) {
 	var timer Timer
 
 	err := r.db.WithContext(ctx).

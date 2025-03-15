@@ -19,10 +19,14 @@ func NewRepository(ctx context.Context) (*Repository, error) {
 		return nil, errors.Wrap(err, "failed to open gorm.db")
 	}
 
-	err = db.Migrator().AutoMigrate(&Timer{}, &Notify{})
+	err = db.WithContext(ctx).Migrator().AutoMigrate(&Timer{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to auto migrate")
 	}
 
 	return &Repository{db: db}, nil
+}
+
+func (r *Repository) DB() *gorm.DB {
+	return r.db
 }

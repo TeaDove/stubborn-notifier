@@ -2,43 +2,100 @@ package tg_bot_service
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/teadove/teasutils/utils/must_utils"
+	"gorm.io/gorm"
+	"math"
 	"regexp"
+	"strconv"
+	"strings"
+	"stubborn-notifier/repositories/notify_repository"
+	"stubborn-notifier/terx"
+	"time"
 )
 
-var disableRegexp = must_utils.Must(regexp.Compile(`^(?P<ID>.+)$`))
+var disableRegexp = must_utils.Must(regexp.Compile(`^(?P<ID>\d+)$`))
 
-func (r *Context) Disable() error {
-	groups := disableRegexp.FindStringSubmatch(r.text)
+func (r *Service) disable(c *terx.Context) error {
+	groups := disableRegexp.FindStringSubmatch(c.Text)
 	if groups == nil {
-		return r.replyWithClientErr(
-			errors.Errorf("failed to match request, text: %s, expected: %s", r.text, disableRegexp.String()),
+		return c.ReplyWithClientErr(
+			errors.Errorf("failed to match request, text: %s, expected: %s", c.Text, disableRegexp.String()),
 		)
 	}
 
-	id, err := uuid.Parse(groups[disableRegexp.SubexpIndex("ID")])
+	id, err := strconv.ParseUint(groups[disableRegexp.SubexpIndex("ID")], 10, 64)
 	if err != nil {
-		return r.replyWithClientErr(errors.Wrap(err, "bad id"))
+		return c.ReplyWithClientErr(errors.Wrap(err, "bad id"))
 	}
 
-	ok, err := r.presentation.notifyRepository.CompleteTimer(r.ctx, id)
+	timer, newTimer, err := r.completeAndRescheduleTimer(c, id)
 	if err != nil {
 		return errors.Wrap(err, "failed to complete timer")
 	}
 
-	if !ok {
-		return r.replyWithClientErr(errors.New("timer not found or already disabled"))
+	c.Log().Info().
+		Object("timer", timer).
+		Object("new_timer", newTimer).
+		Msg("timer.completed")
+
+	var text strings.Builder
+	if timer.Attempt == 0 {
+		text.WriteString("Timer completed!\n")
+	} else {
+		text.WriteString(fmt.Sprintf("Timer completed in %d attempts with latency of %d minutes\n",
+			timer.Attempt,
+			int(math.Ceil(time.Now().In(timeZone).Sub(timer.NotifyAt).Minutes())),
+		))
+	}
+	if newTimer != nil {
+		text.WriteString(fmt.Sprintf("Next will run at %s", newTimer.NotifyAtStr()))
 	}
 
-	timer, err := r.presentation.notifyRepository.GetTimer(r.ctx, id)
+	return c.Reply(fmt.Sprintf("Timer completed in %d attempts!", timer.Attempt))
+}
+
+func (r *Service) completeAndRescheduleTimer(c *terx.Context, id uint64) (*notify_repository.Timer, *notify_repository.Timer, error) {
+	var (
+		timer    *notify_repository.Timer
+		newTimer *notify_repository.Timer
+		err      error
+	)
+	err = r.notifyRepository.DB().Transaction(func(tx *gorm.DB) error {
+		timer, err = r.notifyRepository.GetTimerForUpdate(c.Ctx, tx, id)
+		if err != nil {
+			return errors.Wrap(err, "failed to get timer for update")
+		}
+
+		if timer.CompletedAt.Valid {
+			return errors.New("timer is already completed")
+		}
+		if timer.ChatID != c.Chat.ID {
+			return errors.New("invalid chat")
+		}
+
+		timer.CompletedAt.Time = time.Now().In(timeZone)
+		timer.CompletedAt.Valid = true
+
+		err = r.notifyRepository.SaveTx(c.Ctx, tx, timer)
+		if err != nil {
+			return errors.Wrap(err, "failed to save timer for update")
+		}
+
+		if timer.Interval.Valid {
+			*newTimer = timer.CopyForNew()
+			err = r.notifyRepository.SaveTx(c.Ctx, tx, newTimer)
+			if err != nil {
+				return errors.Wrap(err, "failed to save timer for update")
+			}
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return errors.Wrap(err, "failed to get timer")
+		return nil, nil, errors.Wrap(err, "failed to commit transaction")
 	}
 
-	zerolog.Ctx(r.ctx).Info().Interface("timer", timer).Msg("timer.completed")
-
-	return r.reply(fmt.Sprintf("Timer completed in %d attempts!", timer.Attempt))
+	return timer, newTimer, nil
 }

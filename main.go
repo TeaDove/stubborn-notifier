@@ -16,5 +16,5 @@ func main() {
 		panic(errors.Wrap(err, "failed to build app container"))
 	}
 
-	container.TGBotPresentation.PollerRun(ctx)
+	container.Service.Start(ctx)
 }

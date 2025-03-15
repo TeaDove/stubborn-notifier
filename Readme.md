@@ -1,0 +1,9 @@
+- [ ] Notify
+- [ ] Pomodoro 
+- [ ] Chains
+- [ ] Parser
+- [ ] History
+- [ ] Current
+- [ ] Integration with google-calendar
+- [ ] Delete
+- [ ] Snooze

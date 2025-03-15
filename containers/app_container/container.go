@@ -5,17 +5,17 @@ import (
 	"stubborn-notifier/repositories/notify_repository"
 	"stubborn-notifier/services/tg_bot_service"
 	"stubborn-notifier/settings"
+	"stubborn-notifier/terx"
 	"time"
 
 	"github.com/go-co-op/gocron"
 	"github.com/teadove/teasutils/utils/di_utils"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/pkg/errors"
 )
 
 type Container struct {
-	TGBotPresentation *tg_bot_service.Service
+	Service *tg_bot_service.Service
 
 	healths []di_utils.Health
 	closers []di_utils.CloserWithContext
@@ -33,26 +33,28 @@ func Build(ctx context.Context) (*Container, error) {
 	scheduler := gocron.NewScheduler(time.UTC)
 	scheduler.StartAsync()
 
-	// TODO move to settings
-	bot, err := tgbotapi.NewBotAPI(settings.Settings.TG.BotToken)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create bot client")
-	}
-
 	notifyRepository, err := notify_repository.NewRepository(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create notify repository")
 	}
 
-	tgBotService, err := tg_bot_service.NewService(ctx, bot, scheduler, notifyRepository)
+	appTerx, err := terx.New(&terx.Config{
+		Token:        settings.Settings.TG.BotToken,
+		ReplyWithErr: true,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create terx")
+	}
+
+	tgBotService, err := tg_bot_service.NewService(ctx, appTerx, scheduler, notifyRepository)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create tg bot service")
 	}
 
 	container := &Container{
-		TGBotPresentation: tgBotService,
-		healths:           []di_utils.Health{tgBotService},
-		closers:           []di_utils.CloserWithContext{tgBotService},
+		Service: tgBotService,
+		healths: []di_utils.Health{appTerx},
+		closers: []di_utils.CloserWithContext{appTerx},
 	}
 
 	return container, nil
