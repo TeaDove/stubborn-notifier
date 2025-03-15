@@ -40,7 +40,7 @@ func (r *Service) disable(c *terx.Context) error {
 		Msg("timer.completed")
 
 	var text strings.Builder
-	if timer.Attempt == 0 {
+	if timer.Attempt == 1 {
 		text.WriteString("Timer completed!\n")
 	} else {
 		text.WriteString(fmt.Sprintf("Timer completed in %d attempts with latency of %d minutes\n",
@@ -52,7 +52,7 @@ func (r *Service) disable(c *terx.Context) error {
 		text.WriteString(fmt.Sprintf("Next will run at %s", newTimer.NotifyAtStr()))
 	}
 
-	return c.Reply(fmt.Sprintf("Timer completed in %d attempts!", timer.Attempt))
+	return c.Reply(text.String())
 }
 
 func (r *Service) completeAndRescheduleTimer(c *terx.Context, id uint64) (*notify_repository.Timer, *notify_repository.Timer, error) {

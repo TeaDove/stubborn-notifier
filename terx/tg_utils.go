@@ -98,3 +98,23 @@ func (r *Context) TryReplyOnErr(err error) {
 		zerolog.Ctx(r.Ctx).Error().Stack().Err(err).Msg("failed.to.try.reply.on.err")
 	}
 }
+
+func (r *Context) ReplyOnCallback(text string, withAlert bool) error {
+	if r.Update.CallbackQuery == nil {
+		panic("CallbackQuery is nil")
+	}
+
+	var msg tgbotapi.Chattable
+	if withAlert {
+		msg = tgbotapi.NewCallback(r.Update.CallbackQuery.ID, text)
+	} else {
+		msg = tgbotapi.NewCallbackWithAlert(r.Update.CallbackQuery.ID, text)
+	}
+
+	_, err := r.Terx.Bot.Send(msg)
+	if err != nil {
+		return errors.Wrap(err, "failed to send reply on callback")
+	}
+
+	return nil
+}

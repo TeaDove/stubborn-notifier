@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/teadove/teasutils/utils/logger_utils"
@@ -121,6 +122,39 @@ func (r *Service) setTimer(c *terx.Context) error {
 	return r.scheduleTimer(c, timer)
 }
 
+func (r *Service) sentTimerDescription(c *terx.Context, timer *notify_repository.Timer) error {
+	var text strings.Builder
+	text.WriteString(fmt.Sprintf("I'll notify you at %s", timer.NotifyAtStr()))
+	if timer.About.Valid {
+		text.WriteString(fmt.Sprintf(` about <i>"%s"</i>`, html.EscapeString(timer.About.String)))
+	}
+	if timer.Interval.Valid {
+		text.WriteString(fmt.Sprintf(` every %s`, timer.Interval.V.String()))
+	}
+
+	msg := c.BuildReply(text.String())
+
+	callbackData := CallbackData{Delete: &CallbackDataDelete{ID: timer.ID}}
+	callbackDataStr, err := json.Marshal(callbackData)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal callback data")
+	}
+
+	msg.ReplyMarkup =
+		tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("delete", string(callbackDataStr)),
+			),
+		)
+
+	_, err = c.Terx.Bot.Send(msg)
+	if err != nil {
+		return errors.Wrap(err, "failed to send message")
+	}
+
+	return nil
+}
+
 func (r *Service) scheduleTimer(c *terx.Context, timer *notify_repository.Timer) error {
 	r.timersMu.Lock()
 	defer r.timersMu.Unlock()
@@ -130,7 +164,7 @@ func (r *Service) scheduleTimer(c *terx.Context, timer *notify_repository.Timer)
 
 	zerolog.Ctx(c.Ctx).Info().Interface("timer", timer).Msg("timer.saved")
 
-	return c.Replyf("Timer set! (%s)", timer.NotifyAtStr())
+	return r.sentTimerDescription(c, timer)
 }
 
 func (r *Service) notifyTimer(ctx context.Context, timer *notify_repository.Timer) {

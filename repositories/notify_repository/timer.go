@@ -28,6 +28,10 @@ func (r *Timer) NotifyAtStr() string {
 }
 
 func (r *Timer) MarshalZerologObject(e *zerolog.Event) {
+	if r == nil {
+		return
+	}
+
 	e.
 		Uint64("id", r.ID).
 		Int64("chat_id", r.ChatID).
@@ -83,6 +87,20 @@ func (r *Repository) IncAttemptsTimer(ctx context.Context, id uint64) (bool, err
 	}
 
 	return result.RowsAffected == 1, nil
+}
+
+func (r *Repository) GetIncompleteTimersForChat(ctx context.Context, chatID int64) ([]Timer, error) {
+	var timers []Timer
+
+	err := r.db.WithContext(ctx).
+		Where("completed_at is null and chat_id = ?", chatID).
+		Find(&timers).
+		Error
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to select")
+	}
+
+	return timers, nil
 }
 
 func (r *Repository) GetIncompleteTimers(ctx context.Context) ([]Timer, error) {

@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/teadove/teasutils/utils/must_utils"
+	"github.com/teadove/teasutils/utils/refrect_utils"
 	"sync"
 )
 
@@ -81,7 +82,7 @@ func (r *Terx) processUpdate(ctx context.Context, wg *sync.WaitGroup, update *tg
 
 				logger.Error().
 					Stack().Err(err).
-					Type("processor", handler.Processor).
+					Str("processor", refrect_utils.GetFunctionName(handler.Processor)).
 					Interface("update", update).
 					Msg("failed.to.process.handler")
 
@@ -90,10 +91,14 @@ func (r *Terx) processUpdate(ctx context.Context, wg *sync.WaitGroup, update *tg
 				}
 			}
 
-			logger.Debug().Msg("handler.processed")
+			logger.Debug().
+				Str("processor", refrect_utils.GetFunctionName(handler.Processor)).
+				Msg("handler.processed")
 		}
-
 	}
+
+	logger.Debug().
+		Msg("update.processed")
 
 	return nil
 }
