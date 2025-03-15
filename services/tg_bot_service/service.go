@@ -46,6 +46,10 @@ func NewService(
 			Command:     "help",
 			Description: "Help!",
 		},
+		tgbotapi.BotCommand{
+			Command:     "keyboard",
+			Description: "Restore keyboard!",
+		},
 	)
 
 	_, err := r.terx.Bot.Request(command)
@@ -54,6 +58,7 @@ func NewService(
 	}
 	r.terx.AddHandler(r.disable, terx.FilterCommand("disable"))
 	r.terx.AddHandler(r.setTimer, terx.FilterIsMessage(), terx.FilterNotCommand())
+	r.terx.AddHandler(r.setKeyboard, terx.FilterCommand("keyboard"))
 
 	err = r.RestartTimers(ctx)
 	if err != nil {

@@ -6,7 +6,7 @@ import (
 	"stubborn-notifier/terx"
 )
 
-func (r *Service) suggestTimers(c *terx.Context) error {
+func (r *Service) setKeyboard(c *terx.Context) error {
 	msg := c.BuildReply("Restored")
 
 	msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(
