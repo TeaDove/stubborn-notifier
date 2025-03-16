@@ -113,7 +113,7 @@ func (r *Context) ReplyOnCallback(text string, withAlert bool) error {
 
 	_, err := r.Terx.Bot.Send(msg)
 	if err != nil {
-		return errors.Wrap(err, "failed to send reply on callback")
+		zerolog.Ctx(r.Ctx).Error().Stack().Err(err).Msg("failed.to.reply.with.callback")
 	}
 
 	return nil
