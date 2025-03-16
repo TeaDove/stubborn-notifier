@@ -94,6 +94,7 @@ func (r *Repository) GetIncompleteTimersForChat(ctx context.Context, chatID int6
 
 	err := r.db.WithContext(ctx).
 		Where("completed_at is null and chat_id = ?", chatID).
+		Order("notify_at desc").
 		Find(&timers).
 		Error
 	if err != nil {

@@ -106,9 +106,9 @@ func (r *Context) ReplyOnCallback(text string, withAlert bool) error {
 
 	var msg tgbotapi.Chattable
 	if withAlert {
-		msg = tgbotapi.NewCallback(r.Update.CallbackQuery.ID, text)
-	} else {
 		msg = tgbotapi.NewCallbackWithAlert(r.Update.CallbackQuery.ID, text)
+	} else {
+		msg = tgbotapi.NewCallback(r.Update.CallbackQuery.ID, text)
 	}
 
 	_, err := r.Terx.Bot.Send(msg)

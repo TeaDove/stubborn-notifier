@@ -124,7 +124,7 @@ func (r *Service) setTimer(c *terx.Context) error {
 
 func (r *Service) sentTimerDescription(c *terx.Context, timer *notify_repository.Timer) error {
 	var text strings.Builder
-	text.WriteString(fmt.Sprintf("I'll notify you at %s", timer.NotifyAtStr()))
+	text.WriteString(fmt.Sprintf("%s", timer.NotifyAtStr()))
 	if timer.About.Valid {
 		text.WriteString(fmt.Sprintf(` about <i>"%s"</i>`, html.EscapeString(timer.About.String)))
 	}
