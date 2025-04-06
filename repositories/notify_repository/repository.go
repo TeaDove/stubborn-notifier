@@ -2,9 +2,9 @@ package notify_repository
 
 import (
 	"context"
+	"gorm.io/driver/sqlite"
 	"stubborn-notifier/settings"
 
-	"github.com/glebarez/sqlite"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )

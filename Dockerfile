@@ -3,7 +3,7 @@ FROM golang:1.23-bullseye AS build
 
 WORKDIR /src
 
-ENV CGO_ENABLED=0
+ENV CGO_ENABLED=1
 COPY go.mod go.sum ./
 RUN go get ./...
 

@@ -1,4 +1,4 @@
-GO ?= GO111MODULE=on CGO_ENABLED=0 go
+GO ?= GO111MODULE=on CGO_ENABLED=1 go
 
 run:
 	$(GO) run main.go
