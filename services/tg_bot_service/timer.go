@@ -114,7 +114,9 @@ func (r *Service) setTimer(c *terx.Context) error {
 		return c.ReplyWithClientErr(errors.Wrap(err, "failed to get `at`"))
 	}
 
-	timer, err := r.notifyRepository.CreateTimer(c.Ctx, c.Chat.ID, req.About, at, sql.Null[time.Duration]{Valid: false})
+	every := sql.NullInt64{Int64: int64(req.Every.V), Valid: req.Every.Valid}
+
+	timer, err := r.notifyRepository.CreateTimer(c.Ctx, c.Chat.ID, req.About, at, every)
 	if err != nil {
 		return errors.Wrap(err, "failed to create timer")
 	}
@@ -129,7 +131,7 @@ func (r *Service) sentTimerDescription(c *terx.Context, timer *notify_repository
 		text.WriteString(fmt.Sprintf(` about <i>"%s"</i>`, html.EscapeString(timer.About.String)))
 	}
 	if timer.Interval.Valid {
-		text.WriteString(fmt.Sprintf(` every %s`, timer.Interval.V.String()))
+		text.WriteString(fmt.Sprintf(` every %s`, time.Duration(timer.Interval.Int64).String()))
 	}
 
 	msg := c.BuildReply(text.String())

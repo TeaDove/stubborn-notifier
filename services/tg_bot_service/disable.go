@@ -49,7 +49,10 @@ func (r *Service) disable(c *terx.Context) error {
 		))
 	}
 	if newTimer != nil {
-		text.WriteString(fmt.Sprintf("Next will run at %s", newTimer.NotifyAtStr()))
+		err = r.scheduleTimer(c, newTimer)
+		if err != nil {
+			return errors.Wrap(err, "failed to schedule timer")
+		}
 	}
 
 	return c.Reply(text.String())
@@ -83,7 +86,13 @@ func (r *Service) completeAndRescheduleTimer(c *terx.Context, id uint64) (*notif
 		}
 
 		if timer.Interval.Valid {
+			newTimer = &notify_repository.Timer{}
 			*newTimer = timer.CopyForNew()
+
+			for newTimer.NotifyAt.Before(time.Now().In(timeZone)) {
+				newTimer.NotifyAt = newTimer.NotifyAt.Add(time.Duration(newTimer.Interval.Int64))
+			}
+
 			err = r.notifyRepository.SaveTx(c.Ctx, tx, newTimer)
 			if err != nil {
 				return errors.Wrap(err, "failed to save timer for update")

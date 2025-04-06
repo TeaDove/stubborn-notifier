@@ -19,7 +19,7 @@ type Timer struct {
 
 	About    sql.NullString
 	NotifyAt time.Time
-	Interval sql.Null[time.Duration]
+	Interval sql.NullInt64
 	Attempt  uint64
 }
 
@@ -48,7 +48,7 @@ func (r *Timer) CopyForNew() Timer {
 	return Timer{
 		ChatID:   r.ChatID,
 		About:    r.About,
-		NotifyAt: r.NotifyAt.Add(r.Interval.V),
+		NotifyAt: r.NotifyAt.Add(time.Duration(r.Interval.Int64)),
 		Interval: r.Interval,
 	}
 }
@@ -58,7 +58,7 @@ func (r *Repository) CreateTimer(
 	chatID int64,
 	about sql.NullString,
 	at time.Time,
-	interval sql.Null[time.Duration],
+	interval sql.NullInt64,
 ) (*Timer, error) {
 	timer := &Timer{
 		ChatID:    chatID,
