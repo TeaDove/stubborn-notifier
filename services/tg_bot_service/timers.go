@@ -2,12 +2,12 @@ package tg_bot_service
 
 import (
 	"github.com/pkg/errors"
-	"stubborn-notifier/terx"
+	"github.com/teadove/terx/terx"
 	"time"
 )
 
-func (r *Service) getTimers(c *terx.Context) error {
-	timers, err := r.notifyRepository.GetIncompleteTimersForChat(c.Ctx, c.Chat.ID)
+func (r *Service) getTimers(c *terx.Ctx) error {
+	timers, err := r.notifyRepository.GetIncompleteTimersForChat(c.Context, c.Chat.ID)
 	if err != nil {
 		return errors.Wrap(err, "failed to get timers")
 	}

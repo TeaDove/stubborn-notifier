@@ -1,18 +1,18 @@
 module stubborn-notifier
 
-go 1.23.0
-
-toolchain go1.23.4
+go 1.24.0
 
 require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-co-op/gocron v1.37.0
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
-	github.com/teadove/teasutils/utils v0.2.3
-	gorm.io/gorm v1.25.12
+	github.com/teadove/teasutils/utils v0.2.11
+	github.com/teadove/terx v0.0.0-20250523173820-f6d6e6decc11
+	gorm.io/driver/sqlite v1.5.7
+	gorm.io/gorm v1.26.1
 )
 
 require (
@@ -29,7 +29,7 @@ require (
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-sqlite3 v1.14.27 // indirect
+	github.com/mattn/go-sqlite3 v1.14.28 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.20.5 // indirect
@@ -44,14 +44,13 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/wI2L/jsondiff v0.6.1 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/exp v0.0.0-20250128182459-e0ece0dbea4c // indirect
-	golang.org/x/sync v0.12.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
+	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
+	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
 	google.golang.org/protobuf v1.36.4 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gorm.io/driver/sqlite v1.5.7 // indirect
 	modernc.org/libc v1.22.5 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.5.0 // indirect

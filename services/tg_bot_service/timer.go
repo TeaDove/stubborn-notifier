@@ -8,11 +8,11 @@ import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/teadove/teasutils/utils/logger_utils"
+	"github.com/teadove/terx/terx"
 	"html"
 	"strconv"
 	"strings"
 	"stubborn-notifier/repositories/notify_repository"
-	"stubborn-notifier/terx"
 	"time"
 
 	"github.com/pkg/errors"
@@ -103,7 +103,7 @@ func (r *TimerRequest) getAt(now time.Time) (time.Time, error) {
 	return at, nil
 }
 
-func (r *Service) setTimer(c *terx.Context) error {
+func (r *Service) setTimer(c *terx.Ctx) error {
 	req, err := parseIntoRequest(c.Text)
 	if err != nil {
 		return c.ReplyWithClientErr(err)
@@ -116,7 +116,7 @@ func (r *Service) setTimer(c *terx.Context) error {
 
 	every := sql.NullInt64{Int64: int64(req.Every.V), Valid: req.Every.Valid}
 
-	timer, err := r.notifyRepository.CreateTimer(c.Ctx, c.Chat.ID, req.About, at, every)
+	timer, err := r.notifyRepository.CreateTimer(c.Context, c.Chat.ID, req.About, at, every)
 	if err != nil {
 		return errors.Wrap(err, "failed to create timer")
 	}
@@ -124,7 +124,8 @@ func (r *Service) setTimer(c *terx.Context) error {
 	return r.scheduleTimer(c, timer)
 }
 
-func (r *Service) sentTimerDescription(c *terx.Context, timer *notify_repository.Timer) error {
+func (r *Service) sentTimerDescription(c *terx.Ctx, timer *notify_repository.Timer) error {
+
 	var text strings.Builder
 	text.WriteString(fmt.Sprintf("%s", timer.NotifyAtStr()))
 	if timer.About.Valid {
@@ -157,14 +158,14 @@ func (r *Service) sentTimerDescription(c *terx.Context, timer *notify_repository
 	return nil
 }
 
-func (r *Service) scheduleTimer(c *terx.Context, timer *notify_repository.Timer) error {
+func (r *Service) scheduleTimer(c *terx.Ctx, timer *notify_repository.Timer) error {
 	r.timersMu.Lock()
 	defer r.timersMu.Unlock()
 	r.timers[timer.ID] = *timer
 
 	go r.notifyTimer(logger_utils.NewLoggedCtx(), timer)
 
-	zerolog.Ctx(c.Ctx).Info().Interface("timer", timer).Msg("timer.saved")
+	c.Log().Info().Interface("timer", timer).Msg("timer.saved")
 
 	return r.sentTimerDescription(c, timer)
 }
@@ -231,8 +232,9 @@ func (r *Service) notifyTimer(ctx context.Context, timer *notify_repository.Time
 			continue
 		}
 
-		zerolog.Ctx(ctx).Info().Str("next", (90 * time.Second).String()).Msg("notification.sent")
-		time.Sleep(90 * time.Second)
+		const sleepDur = 3 * time.Minute
+		zerolog.Ctx(ctx).Info().Str("next", sleepDur.String()).Msg("notification.sent")
+		time.Sleep(sleepDur)
 	}
 }
 

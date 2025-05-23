@@ -4,19 +4,19 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/teadove/teasutils/utils/must_utils"
+	"github.com/teadove/terx/terx"
 	"gorm.io/gorm"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
 	"stubborn-notifier/repositories/notify_repository"
-	"stubborn-notifier/terx"
 	"time"
 )
 
 var disableRegexp = must_utils.Must(regexp.Compile(`^(?P<ID>\d+)$`))
 
-func (r *Service) disable(c *terx.Context) error {
+func (r *Service) disable(c *terx.Ctx) error {
 	groups := disableRegexp.FindStringSubmatch(c.Text)
 	if groups == nil {
 		return c.ReplyWithClientErr(
@@ -58,14 +58,14 @@ func (r *Service) disable(c *terx.Context) error {
 	return c.Reply(text.String())
 }
 
-func (r *Service) completeAndRescheduleTimer(c *terx.Context, id uint64) (*notify_repository.Timer, *notify_repository.Timer, error) {
+func (r *Service) completeAndRescheduleTimer(c *terx.Ctx, id uint64) (*notify_repository.Timer, *notify_repository.Timer, error) {
 	var (
 		timer    *notify_repository.Timer
 		newTimer *notify_repository.Timer
 		err      error
 	)
 	err = r.notifyRepository.DB().Transaction(func(tx *gorm.DB) error {
-		timer, err = r.notifyRepository.GetTimerForUpdate(c.Ctx, tx, id)
+		timer, err = r.notifyRepository.GetTimerForUpdate(c.Context, tx, id)
 		if err != nil {
 			return errors.Wrap(err, "failed to get timer for update")
 		}
@@ -80,7 +80,7 @@ func (r *Service) completeAndRescheduleTimer(c *terx.Context, id uint64) (*notif
 		timer.CompletedAt.Time = time.Now().In(timeZone)
 		timer.CompletedAt.Valid = true
 
-		err = r.notifyRepository.SaveTx(c.Ctx, tx, timer)
+		err = r.notifyRepository.SaveTx(c.Context, tx, timer)
 		if err != nil {
 			return errors.Wrap(err, "failed to save timer for update")
 		}
@@ -93,7 +93,7 @@ func (r *Service) completeAndRescheduleTimer(c *terx.Context, id uint64) (*notif
 				newTimer.NotifyAt = newTimer.NotifyAt.Add(time.Duration(newTimer.Interval.Int64))
 			}
 
-			err = r.notifyRepository.SaveTx(c.Ctx, tx, newTimer)
+			err = r.notifyRepository.SaveTx(c.Context, tx, newTimer)
 			if err != nil {
 				return errors.Wrap(err, "failed to save timer for update")
 			}

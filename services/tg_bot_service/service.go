@@ -2,8 +2,8 @@ package tg_bot_service
 
 import (
 	"context"
+	"github.com/teadove/terx/terx"
 	"stubborn-notifier/repositories/notify_repository"
-	"stubborn-notifier/terx"
 	"sync"
 	"time"
 

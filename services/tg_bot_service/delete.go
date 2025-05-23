@@ -3,7 +3,7 @@ package tg_bot_service
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	"stubborn-notifier/terx"
+	"github.com/teadove/terx/terx"
 )
 
 type CallbackDataDelete struct {
@@ -14,7 +14,7 @@ type CallbackData struct {
 	Delete *CallbackDataDelete
 }
 
-func (r *Service) processCallback(c *terx.Context) error {
+func (r *Service) processCallback(c *terx.Ctx) error {
 	var (
 		req CallbackData
 		err error
@@ -26,7 +26,7 @@ func (r *Service) processCallback(c *terx.Context) error {
 	}
 
 	if req.Delete != nil {
-		ok, err = r.notifyRepository.CompleteTimer(c.Ctx, req.Delete.ID, c.Chat.ID)
+		ok, err = r.notifyRepository.CompleteTimer(c.Context, req.Delete.ID, c.Chat.ID)
 		if err != nil {
 			return errors.Wrap(err, "failed to delete")
 		}

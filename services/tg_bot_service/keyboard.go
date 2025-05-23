@@ -3,10 +3,10 @@ package tg_bot_service
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/pkg/errors"
-	"stubborn-notifier/terx"
+	"github.com/teadove/terx/terx"
 )
 
-func (r *Service) setKeyboard(c *terx.Context) error {
+func (r *Service) setKeyboard(c *terx.Ctx) error {
 	msg := c.BuildReply("Restored")
 
 	msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(
